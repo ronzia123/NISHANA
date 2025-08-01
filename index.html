@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archery Master</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            touch-action: manipulation;
+            overflow: hidden;
+            background-color: white;
+            color: black;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 0;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #target {
+            position: absolute;
+            right: 10px;
+            width: 13.5px;
+            height: 120px;
+            background-color: black;
+            border-radius: 3px;
+            transform: translateY(-50%);
+        }
+        .arrow {
+            position: absolute;
+            width: 30px;
+            height: 4px;
+            background-color: black;
+            transform-origin: left center;
+        }
+        .arrow::before {
+            content: "";
+            position: absolute;
+            right: 0;
+            top: -6px;
+            border-left: 12px solid black;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+        }
+        #shooter {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            width: 60px;
+            height: 60px;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .arrow-indicator {
+            position: absolute;
+            width: 40px;
+            height: 4px;
+            background-color: black;
+            transform-origin: center;
+        }
+        .arrow-indicator::before {
+            content: "";
+            position: absolute;
+            right: -2px;
+            top: -8px;
+            border-left: 16px solid black;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+        }
+        #arrow-indicators {
+            position: absolute;
+            left: 90px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .hit-animation {
+            animation: hit 0.5s ease-out;
+        }
+        @keyframes hit {
+            0% { transform: translateY(-50%) scale(1); }
+            50% { transform: translateY(-50%) scale(1.2); background-color: #555; }
+            100% { transform: translateY(-50%) scale(1); }
+        }
+        .hit-effect {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        .starburst {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            animation: starburst 0.5s ease-out forwards;
+        }
+        @keyframes starburst {
+            0% { transform: scale(0.1); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        #game-over, #high-score-entry, #splash-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        #splash-screen {
+            display: flex;
+            background-color: white;
+        }
+        .high-score-table {
+            width: 80%;
+            max-width: 300px;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        .high-score-table th, .high-score-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .high-score-table th {
+            border-bottom: 2px solid black;
+        }
+        #name-input {
+            border: 2px solid black;
+            padding: 8px;
+            font-size: 18px;
+            width: 200px;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .logo {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+        .bow-logo {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="bg-white text-black">
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="text-center">
+        <svg class="bow-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+            <path d="M20,10 C0,50 0,50 20,90" stroke="black" stroke-width="6" fill="none" stroke-linecap="round" />
+            <path d="M20,10 C50,50 50,50 20,90" stroke="black" stroke-width="3" fill="none" />
+            <rect x="17" y="45" width="6" height="10" fill="black" rx="2" />
+            <line x1="50" y1="50" x2="80" y2="50" stroke="black" stroke-width="3" />
+            <path d="M80,50 L70,45 L70,55 Z" fill="black" />
+        </svg>
+        <div class="logo">ARCHERY MASTER</div>
+        <p class="mb-8">Test your aim and reflexes!</p>
+        <button id="start-btn" class="border-2 border-black px-8 py-3 text-lg hover:bg-black hover:text-white transition-colors">START GAME</button>
+        
+        <div class="mt-12">
+            <h3 class="font-bold mb-2">HIGH SCORES</h3>
+            <table class="high-score-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Name</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody id="high-scores-splash">
+                    <!-- High scores will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <div id="game-container" class="relative">
+        <div id="score-display" class="absolute top-4 left-4 text-xl font-bold">Score: 0</div>
+        <div id="shots-display" class="absolute top-4 right-4 text-xl font-bold">Shots: 3</div>
+        <div id="target"></div>
+        <div id="shooter">
+            <!-- Realistic Bow SVG -->
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" width="60" height="60">
+                <path d="M10,5 C0,30 0,30 10,55" stroke="black" stroke-width="3" fill="none" stroke-linecap="round" />
+                <path d="M10,5 C25,30 25,30 10,55" stroke="black" stroke-width="1.5" fill="none" />
+                <rect x="8" y="25" width="4" height="10" fill="black" rx="1" />
+            </svg>
+        </div>
+        
+        <div id="arrow-indicators">
+            <div class="arrow-indicator" id="arrow-1"></div>
+            <div class="arrow-indicator" id="arrow-2"></div>
+            <div class="arrow-indicator" id="arrow-3"></div>
+        </div>
+        
+        <div class="absolute bottom-4 left-0 w-full text-center">
+            <p class="text-sm opacity-70">Tap anywhere to shoot</p>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over" class="text-center">
+        <h2 class="text-3xl font-bold mb-4">Game Over</h2>
+        <p class="text-xl mb-6">Final Score: <span id="final-score">0</span></p>
+        <button id="restart-btn" class="border-2 border-black px-6 py-2 text-lg hover:bg-black hover:text-white transition-colors mb-6">Play Again</button>
+        
+        <h3 class="font-bold mb-2">HIGH SCORES</h3>
+        <table class="high-score-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Name</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody id="high-scores">
+                <!-- High scores will be populated here -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- High Score Entry Screen -->
+    <div id="high-score-entry" class="text-center">
+        <h2 class="text-3xl font-bold mb-4">New High Score!</h2>
+        <p class="text-xl mb-6">Your Score: <span id="high-score-value">0</span></p>
+        <p class="mb-2">Enter your name (8 characters max):</p>
+        <input type="text" id="name-input" maxlength="8" placeholder="YOUR NAME">
+        <button id="save-score-btn" class="border-2 border-black px-6 py-2 text-lg hover:bg-black hover:text-white transition-colors mt-4">Save Score</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Elements
+            const gameContainer = document.getElementById('game-container');
+            const target = document.getElementById('target');
+            const shooter = document.getElementById('shooter');
+            const scoreDisplay = document.getElementById('score-display');
+            const shotsDisplay = document.getElementById('shots-display');
+            const gameOverScreen = document.getElementById('game-over');
+            const finalScoreDisplay = document.getElementById('final-score');
+            const restartBtn = document.getElementById('restart-btn');
+            const highScoreEntry = document.getElementById('high-score-entry');
+            const highScoreValue = document.getElementById('high-score-value');
+            const nameInput = document.getElementById('name-input');
+            const saveScoreBtn = document.getElementById('save-score-btn');
+            const splashScreen = document.getElementById('splash-screen');
+            const startBtn = document.getElementById('start-btn');
+            const highScoresTable = document.getElementById('high-scores');
+            const highScoresSplash = document.getElementById('high-scores-splash');
+            
+            const arrowIndicators = [
+                document.getElementById('arrow-1'),
+                document.getElementById('arrow-2'),
+                document.getElementById('arrow-3')
+            ];
+            
+            // Game variables
+            let targetPosition = 0;
+            let targetSpeed = 1.2;
+            let score = 0;
+            let shotsRemaining = 3;
+            let gameActive = false;
+            let highScores = [];
+            
+            // Load high scores from local storage
+            function loadHighScores() {
+                const savedScores = localStorage.getItem('archeryHighScores');
+                if (savedScores) {
+                    highScores = JSON.parse(savedScores);
+                } else {
+                    // Default high scores
+                    highScores = [
+                        { name: "ARCHER", score: 10 },
+                        { name: "ROBIN", score: 8 },
+                        { name: "HAWK", score: 6 },
+                        { name: "ARROW", score: 4 },
+                        { name: "NEWBIE", score: 2 }
+                    ];
+                    saveHighScores();
+                }
+                displayHighScores();
+            }
+            
+            // Save high scores to local storage
+            function saveHighScores() {
+                localStorage.setItem('archeryHighScores', JSON.stringify(highScores));
+            }
+            
+            // Display high scores in tables
+            function displayHighScores() {
+                // Clear tables
+                highScoresTable.innerHTML = '';
+                highScoresSplash.innerHTML = '';
+                
+                // Populate both tables
+                highScores.forEach((entry, index) => {
+                    const row = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${entry.name}</td>
+                            <td>${entry.score}</td>
+                        </tr>
+                    `;
+                    highScoresTable.innerHTML += row;
+                    highScoresSplash.innerHTML += row;
+                });
+            }
+            
+            // Check if score is a high score
+            function checkHighScore(score) {
+                // Check if score is higher than the lowest high score or if there are less than 5 high scores
+                return highScores.length < 5 || score > highScores[highScores.length - 1].score;
+            }
+            
+            // Add new high score
+            function addHighScore(name, score) {
+                highScores.push({ name, score });
+                // Sort high scores in descending order
+                highScores.sort((a, b) => b.score - a.score);
+                // Keep only top 5
+                if (highScores.length > 5) {
+                    highScores.pop();
+                }
+                saveHighScores();
+                displayHighScores();
+            }
+            
+            // Set initial target position
+            target.style.top = `${targetPosition}%`;
+            
+            // Update arrow indicators
+            function updateArrowIndicators() {
+                arrowIndicators.forEach((indicator, index) => {
+                    indicator.style.display = index < shotsRemaining ? 'block' : 'none';
+                });
+            }
+            
+            // Create hit effect
+            function createHitEffect(x, y) {
+                const hitEffect = document.createElement('div');
+                hitEffect.className = 'hit-effect';
+                hitEffect.style.left = `${x}px`;
+                hitEffect.style.top = `${y}px`;
+                
+                // Create starburst effect
+                for (let i = 0; i < 8; i++) {
+                    const line = document.createElement('div');
+                    line.className = 'starburst';
+                    line.style.width = '2px';
+                    line.style.height = '20px';
+                    line.style.backgroundColor = 'black';
+                    line.style.position = 'absolute';
+                    line.style.left = '50%';
+                    line.style.top = '50%';
+                    line.style.transformOrigin = '0 0';
+                    line.style.transform = `rotate(${i * 45}deg) translate(-50%, -50%)`;
+                    
+                    hitEffect.appendChild(line);
+                }
+                
+                gameContainer.appendChild(hitEffect);
+                
+                // Remove effect after animation
+                setTimeout(() => {
+                    if (hitEffect.parentNode) {
+                        hitEffect.parentNode.removeChild(hitEffect);
+                    }
+                }, 500);
+            }
+            
+            // Game loop
+            function gameLoop() {
+                if (!gameActive) return;
+                
+                // Move target downward
+                targetPosition += targetSpeed;
+                
+                // Loop from top when reaching bottom
+                if (targetPosition > 110) {
+                    targetPosition = -10;
+                }
+                
+                target.style.top = `${targetPosition}%`;
+                
+                requestAnimationFrame(gameLoop);
+            }
+            
+            // Shoot arrow function
+            function shootArrow(event) {
+                if (!gameActive || shotsRemaining <= 0) return;
+                
+                shotsRemaining--;
+                shotsDisplay.textContent = `Shots: ${shotsRemaining}`;
+                updateArrowIndicators();
+                
+                const arrow = document.createElement('div');
+                arrow.className = 'arrow';
+                
+                // Position arrow at shooter
+                const shooterRect = shooter.getBoundingClientRect();
+                arrow.style.left = `${shooterRect.right - 5}px`;
+                arrow.style.top = `${shooterRect.top + shooterRect.height / 2 - 2}px`;
+                
+                gameContainer.appendChild(arrow);
+                
+                // Animate arrow
+                let arrowPosition = shooterRect.right - 5;
+                const gameContainerRect = gameContainer.getBoundingClientRect();
+                const arrowSpeed = 30;
+                
+                function moveArrow() {
+                    if (!gameActive) {
+                        if (arrow.parentNode) {
+                            arrow.parentNode.removeChild(arrow);
+                        }
+                        return;
+                    }
+                    
+                    arrowPosition += arrowSpeed;
+                    arrow.style.left = `${arrowPosition}px`;
+                    
+                    // Get current target position for hit detection
+                    const targetRect = target.getBoundingClientRect();
+                    
+                    // Check for hit
+                    const arrowRect = arrow.getBoundingClientRect();
+                    if (
+                        arrowRect.right >= targetRect.left &&
+                        arrowRect.left <= targetRect.right &&
+                        arrowRect.bottom >= targetRect.top &&
+                        arrowRect.top <= targetRect.bottom
+                    ) {
+                        // Hit!
+                        score++;
+                        scoreDisplay.textContent = `Score: ${score}`;
+                        
+                        // Hit animation
+                        target.classList.add('hit-animation');
+                        setTimeout(() => {
+                            target.classList.remove('hit-animation');
+                        }, 500);
+                        
+                        // Create hit effect at the point of impact
+                        createHitEffect(targetRect.left, (targetRect.top + targetRect.bottom) / 2);
+                        
+                        // Increase difficulty slightly
+                        targetSpeed += 0.1;
+                        
+                        // Remove arrow
+                        if (arrow.parentNode) {
+                            arrow.parentNode.removeChild(arrow);
+                        }
+                        
+                        // Reset shots if hit
+                        shotsRemaining = 3;
+                        shotsDisplay.textContent = `Shots: ${shotsRemaining}`;
+                        updateArrowIndicators();
+                        
+                        return;
+                    }
+                    
+                    // Remove arrow if it goes off screen
+                    if (arrowPosition > gameContainerRect.width) {
+                        if (arrow.parentNode) {
+                            arrow.parentNode.removeChild(arrow);
+                        }
+                        
+                        // Check if game over
+                        if (shotsRemaining <= 0) {
+                            gameOver();
+                        }
+                        
+                        return;
+                    }
+                    
+                    requestAnimationFrame(moveArrow);
+                }
+                
+                moveArrow();
+            }
+            
+            // Game over function
+            function gameOver() {
+                gameActive = false;
+                finalScoreDisplay.textContent = score;
+                
+                // Check if it's a high score
+                if (checkHighScore(score)) {
+                    // Show high score entry screen
+                    highScoreValue.textContent = score;
+                    highScoreEntry.style.display = 'flex';
+                } else {
+                    // Show game over screen
+                    gameOverScreen.style.display = 'flex';
+                }
+            }
+            
+            // Start game
+            function startGame() {
+                splashScreen.style.display = 'none';
+                score = 0;
+                shotsRemaining = 3;
+                targetSpeed = 1.2;
+                targetPosition = 0;
+                
+                scoreDisplay.textContent = `Score: ${score}`;
+                shotsDisplay.textContent = `Shots: ${shotsRemaining}`;
+                updateArrowIndicators();
+                
+                // Remove any arrows
+                document.querySelectorAll('.arrow').forEach(arrow => {
+                    arrow.parentNode.removeChild(arrow);
+                });
+                
+                gameActive = true;
+                gameLoop();
+            }
+            
+            // Restart game
+            function restartGame() {
+                gameOverScreen.style.display = 'none';
+                startGame();
+            }
+            
+            // Save high score
+            function saveHighScore() {
+                const name = nameInput.value.trim() || "PLAYER";
+                addHighScore(name, score);
+                highScoreEntry.style.display = 'none';
+                gameOverScreen.style.display = 'flex';
+                nameInput.value = '';
+            }
+            
+            // Event listeners
+            gameContainer.addEventListener('click', shootArrow);
+            gameContainer.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                shootArrow(e);
+            });
+            restartBtn.addEventListener('click', restartGame);
+            startBtn.addEventListener('click', startGame);
+            saveScoreBtn.addEventListener('click', saveHighScore);
+            
+            // Initialize high scores
+            loadHighScores();
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96864215b60b3ed9',t:'MTc1NDA2MDk4My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
